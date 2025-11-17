@@ -5,20 +5,19 @@ import sys
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QLineEdit, QPushButton, QFileDialog, QColorDialog,
-    QComboBox, QGroupBox, QListWidget, QMessageBox, QGridLayout,
+    QComboBox, QGroupBox, QListWidget, QMessageBox,
     QInputDialog
 )
-from PyQt5.QtCore import Qt, QRectF, pyqtSignal
-from PyQt5.QtGui import QColor
+from PyQt5.QtCore import Qt, pyqtSignal
 import pyqtgraph as pg
 from electrode_mapper import ElectrodeMapper
-from selection_manager import SelectionManager, SelectionList
+from selection_manager import SelectionManager
 
 
 class GridWidget(pg.GraphicsLayoutWidget):
     """Custom widget for displaying the electrode grid"""
     
-    square_clicked = pyqtSignal(int, int)
+    square_clicked = pyqtSignal(int, int, bool)
     
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -27,6 +26,7 @@ class GridWidget(pg.GraphicsLayoutWidget):
         self.highlight_item = None
         self.current_highlight = None
         self.zoomed_grids = []  # List of grid numbers to zoom on
+        self.highlighted_coords = set()
         self.setup_grid()
         
     def setup_grid(self):
@@ -101,32 +101,41 @@ class GridWidget(pg.GraphicsLayoutWidget):
         
         self.update_grid()
         
-    def highlight_square(self, x, y):
-        """Highlight a specific square on the grid"""
+    def highlight_square(self, x, y, additive=False):
+        """Highlight one or multiple squares on the grid"""
         self.current_highlight = (x, y)
         
-        # Determine which grid and local position
-        grid_col = x // 16
-        grid_row = y // 16
-        local_x = x % 16
-        local_y = y % 16
+        if not additive:
+            self.highlighted_coords = {(x, y)}
+        else:
+            self.highlighted_coords.add((x, y))
         
-        # Clear all highlights
-        for row in self.plots:
-            for plot in row:
-                plot.highlight.setData(spots=[])
-        
-        # Set highlight on the correct grid
-        if 0 <= grid_row < 4 and 0 <= grid_col < 4:
-            plot = self.plots[grid_row][grid_col]
-            plot.highlight.setData(spots=[{
+        self._refresh_highlights()
+    
+    def _refresh_highlights(self):
+        highlight_map = {}
+        for coord in self.highlighted_coords:
+            x, y = coord
+            grid_col = x // 16
+            grid_row = y // 16
+            if not (0 <= grid_row < 4 and 0 <= grid_col < 4):
+                continue
+            local_x = x % 16
+            local_y = y % 16
+            highlight_map.setdefault((grid_row, grid_col), []).append({
                 'pos': (local_x, local_y),
                 'size': 15
-            }])
+            })
+        
+        for row_idx, row in enumerate(self.plots):
+            for col_idx, plot in enumerate(row):
+                spots = highlight_map.get((row_idx, col_idx), [])
+                plot.highlight.setData(spots=spots)
     
     def clear_highlight(self):
         """Clear the highlight from all grids"""
         self.current_highlight = None
+        self.highlighted_coords.clear()
         for row in self.plots:
             for plot in row:
                 plot.highlight.setData(spots=[])
@@ -202,7 +211,9 @@ class GridWidget(pg.GraphicsLayoutWidget):
                 global_x = plot.grid_col * 16 + local_x
                 global_y = plot.grid_row * 16 + local_y
                 
-                self.square_clicked.emit(global_x, global_y)
+                modifiers = QApplication.keyboardModifiers()
+                shift_pressed = bool(modifiers & Qt.ShiftModifier)
+                self.square_clicked.emit(global_x, global_y, shift_pressed)
     
     def update_grid(self):
         """Update the grid visualization with current selections"""
@@ -459,7 +470,7 @@ class MainWindow(QMainWindow):
         else:
             self.clear_coordinate_display()
     
-    def on_grid_square_clicked(self, x, y):
+    def on_grid_square_clicked(self, x, y, additive=False):
         """Handle click on grid square"""
         data = self.mapper.get_by_coords(x, y)
         
@@ -478,7 +489,7 @@ class MainWindow(QMainWindow):
             self.pixel_input.blockSignals(False)
             
             self.update_coordinate_display(x, y)
-            self.highlight_square(x, y)
+            self.highlight_square(x, y, additive=additive)
     
     def update_coordinate_display(self, x, y):
         """Update the coordinate display fields"""
@@ -498,9 +509,9 @@ class MainWindow(QMainWindow):
         self.zoom_display.setText("---")
         self.grid_widget.clear_highlight()
     
-    def highlight_square(self, x, y):
+    def highlight_square(self, x, y, additive=False):
         """Highlight a specific square on the grid"""
-        self.grid_widget.highlight_square(x, y)
+        self.grid_widget.highlight_square(x, y, additive=additive)
     
     def create_new_list(self):
         """Create a new selection list"""
