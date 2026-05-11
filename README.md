@@ -1,156 +1,154 @@
 # Electrode Mapper GUI
 
-A PyQt5-based GUI application for visualizing and managing electrode mappings between OpenEphys electrodes, Sparrow pixels, and grid coordinates.
+A desktop GUI tool for visualizing and interactively managing electrode mappings in neuroscience recording experiments. Built with PyQt5 and PyQtGraph, it bridges three coordinate systems used in multi-electrode array setups: **OpenEphys** electrode channels, **Sparrow** pixel addresses, and physical **grid coordinates**.
+
+---
+
+## Background
+
+Multi-electrode array (MEA) experiments require researchers to keep track of hundreds of electrodes across multiple coordinate systems simultaneously. This tool was built to replace error-prone manual lookups by providing a real-time visual interface where clicking on any electrode in the spatial grid instantly resolves its identity across all three systems.
+
+---
 
 ## Features
 
-- **4x4 Grid Visualization**: Displays 16 grids (4x4 layout), each containing 16x16 squares (total 64x64 coordinate space)
-- **Coordinate Mapping**: Maps between three coordinate systems:
-  - OpenEphys electrode numbers
-  - Sparrow pixel numbers
-  - Grid coordinates (0,0 to 63,63)
-- **Interactive Selection**: Click on grid squares to select electrodes
-- **Multiple Selection Lists**: Create multiple selection lists with custom colors
-- **Auto-complete Inputs**: Enter electrode or pixel number and the other fields auto-fill
-- **Zoom Grid Display**: Shows zoom grid numbers (1-16) with local coordinates
-- **JSON Import/Export**: Load electrode mappings and save/load selection lists
+- **64×64 Spatial Grid**: 4×4 layout of 16×16 sub-grids renders the full electrode field at a glance
+- **Bi-directional Lookup**: Type an OpenEphys channel number or a Sparrow pixel number — all other fields auto-fill instantly
+- **Click-to-Select**: Click any grid square to resolve its full mapping (electrode ↔ pixel ↔ x,y)
+- **Multi-List Selection**: Create named selection groups with custom colors to mark electrode subsets
+- **JSON Import/Export**: Load electrode mappings from JSON; save and reload selection lists between sessions
+- **Zoom Grid Labels**: Each sub-grid displays its zoom number and local coordinates for hardware reference
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| GUI framework | PyQt5 |
+| Plotting / grid rendering | PyQtGraph |
+| Numerical operations | NumPy |
+| Data format | JSON |
+| Language | Python 3.10+ |
+
+---
 
 ## Installation
 
-### Requirements
-- Python 3.10 or higher
-- Conda package manager
-- PyQt5
-- PyQtGraph
-- NumPy
+### Option 1 — Conda (Recommended)
 
-### Setup
-
-#### Using Conda (Recommended)
-
-1. Create and activate the conda environment:
 ```bash
 conda create -n electrode_mapper python=3.10 -y
 conda activate electrode_mapper
-```
-
-2. Install dependencies:
-```bash
 conda install -c conda-forge pyqt pyqtgraph numpy -y
 ```
 
-#### Using pip (Alternative)
+### Option 2 — pip
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
+---
 
-### Running the Application
-
-Make sure to activate the conda environment first:
+## Running
 
 ```bash
-conda activate electrode_mapper
+conda activate electrode_mapper   # if using conda
 python main.py
 ```
 
-### Loading Electrode Mapping
+---
 
-1. Click "Load Mapping JSON" button
-2. Select your electrode mapping JSON file (format: `[{"electrode": N, "pixel": M, "x": X, "y": Y}, ...]`)
-3. The grid will display all mapped coordinates
+## Usage
 
-### Working with Coordinates
+### 1. Load an Electrode Mapping
 
-**Input Methods:**
-- **Type OpenEphys electrode number**: Sparrow pixel and coordinates auto-fill
-- **Type Sparrow pixel number**: OpenEphys electrode and coordinates auto-fill
-- **Click grid square**: All fields auto-fill
+Click **Load Mapping JSON** and select a file in one of the supported formats:
 
-### Creating Selection Lists
+```json
+[
+  { "electrode": 1, "channel": 1, "pixel": 100, "x": 5, "y": 10 },
+  ...
+]
+```
 
-1. Click "New List" button
-2. Choose a color from the color picker
-3. Select coordinates (via any input method)
-4. Click "Add to List" to add the coordinate to the current list
-5. Click "Remove from List" to remove the coordinate
+The grid populates automatically once the file is loaded.
 
-### Managing Lists
+### 2. Look Up an Electrode
 
-- **Switch Lists**: Use the dropdown to switch between lists
-- **Delete List**: Click "Delete List" to remove the current list
-- **View Coordinates**: The list widget shows all coordinates in the current list
+- Type an **OpenEphys electrode number** → pixel and coordinates auto-fill
+- Type a **Sparrow pixel number** → electrode and coordinates auto-fill
+- **Click a grid square** → all fields auto-fill
 
-### Saving and Loading Lists
+### 3. Build Selection Lists
 
-- **Save**: Click "Save Lists to JSON" to export all selection lists
-- **Load**: Click "Load Lists from JSON" to import previously saved lists
+1. Click **New List** and pick a color
+2. Select coordinates using any input method
+3. Click **Add to List** / **Remove from List** to manage membership
+4. Use the dropdown to switch between lists; **Delete List** removes the active list
 
-### Zoom Grid System
+### 4. Save / Load Lists
 
-The zoom feature uses a special grid numbering system (1-16) for the 16 individual grids:
+- **Save Lists to JSON** — exports all selection lists to a file
+- **Load Lists from JSON** — restores a previously saved session
+
+Exported format:
+
+```json
+{
+  "selection_lists": [
+    {
+      "name": "Region A",
+      "color": [255, 0, 0],
+      "coordinates": [[5, 10], [6, 11]]
+    }
+  ]
+}
+```
+
+### Zoom Grid Numbering
+
+Each of the 16 sub-grids is assigned a hardware zoom number (1–16). The layout:
 
 ```
-Grid Layout (Top to Bottom, Left to Right):
  1   3   7   9
  2   4   8   6
 10  12  16  14
 11  13  15   5
 ```
 
-Each grid has local coordinates from (0,0) to (15,15).
+Local coordinates within each sub-grid run from (0,0) to (15,15).
 
-## File Structure
+---
+
+## Project Structure
 
 ```
 .
-├── main.py                  # Main GUI application
-├── electrode_mapper.py      # Coordinate mapping logic
-├── selection_manager.py     # Selection list management
-├── requirements.txt         # Python dependencies
-└── README.md               # This file
+├── main.py                          # GUI application and event handling
+├── electrode_mapper.py              # Coordinate mapping logic (electrode ↔ pixel ↔ grid)
+├── selection_manager.py             # Selection list state management
+├── elecmap.py                       # Electrode map utilities
+├── config_ChannelRemappingInfo_1_4.json   # Channel remapping config (channels 1–4)
+├── config_ChannelRemappingInfo_9_12.json  # Channel remapping config (channels 9–12)
+├── requirements.txt                 # pip dependencies
+├── CONDA_SETUP.md                   # Conda environment reference
+└── README.md                        # This file
 ```
 
-## JSON File Formats
-
-### Electrode Mapping (Input)
-```json
-[
-  {
-    "electrode": 1,
-    "channel": 1,
-    "pixel": 100,
-    "x": 5,
-    "y": 10
-  },
-  ...
-]
-```
-
-### Selection Lists (Export/Import)
-```json
-{
-  "selection_lists": [
-    {
-      "name": "List 1",
-      "color": [255, 0, 0],
-      "coordinates": [[5, 10], [6, 11], ...]
-    },
-    ...
-  ]
-}
-```
+---
 
 ## Troubleshooting
 
-**Grid not displaying**: Make sure you've loaded a mapping JSON file first
+| Symptom | Fix |
+|---|---|
+| Grid is blank after launch | Load a mapping JSON file first |
+| Fields don't auto-fill when typing | Verify the electrode/pixel number exists in the loaded mapping |
+| Selection colors not visible | Confirm coordinates have been added to a list and the list is active |
 
-**Coordinates not auto-filling**: Verify the electrode/pixel number exists in your mapping file
-
-**Colors not showing**: Ensure you've added coordinates to a list and the list has been created
+---
 
 ## License
 
-This project is provided as-is for electrode mapping visualization purposes.
+MIT License — free to use and modify.
